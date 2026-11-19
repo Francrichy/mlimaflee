@@ -1,42 +1,28 @@
-version: "3.9"
-
 services:
-  app:
-    build: .
-    ports:
-      - "3847:3847"
+  db:
+    image: postgres:16-alpine
     environment:
-      PORT: 3847
-      PAYMENT_DEMO: "true"
-      NOTIFY_DEMO: "true"
-      JWT_SECRET: change-me-in-production
-      APP_URL: http://localhost:3847
-      # DATABASE_URL: postgres://mlimani:mlimani@db:5432/mlimanifleet
-      # SELCOM_VENDOR_ID:
-      # SELCOM_API_KEY:
-      # SELCOM_API_SECRET:
-      # PAWAPAY_API_TOKEN:
-      # PAWAPAY_ENV: sandbox
-      # AT_USERNAME:
-      # AT_API_KEY:
-    volumes:
-      - mf-data:/app/data
-    restart: unless-stopped
-    # depends_on:
-    #   - db
-
-  # Uncomment for PostgreSQL
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: mlimani
-  #     POSTGRES_PASSWORD: mlimani
-  #     POSTGRES_DB: mlimanifleet
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
-
+      POSTGRES_USER: mlimani
+      POSTGRES_PASSWORD: change_me
+      POSTGRES_DB: mlimanifleet
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlimani -d mlimanifleet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build: ./apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mlimani:change_me@db:5432/mlimanifleet?schema=public
+    ports: ["4000:4000"]
+    depends_on:
+      db: { condition: service_healthy }
+  web:
+    build: ./apps/web
+    ports: ["5173:5173"]
+    depends_on: [api]
 volumes:
-  mf-data:
-  # pgdata:
+  pgdata:
