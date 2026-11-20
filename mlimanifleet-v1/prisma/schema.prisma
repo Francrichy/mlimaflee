@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  PLATFORM_OWNER
+  PLATFORM_SUPPORT
+}
+enum CompanyStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+enum UserRole {
+  COMPANY_OWNER
+  COMPANY_ADMIN
+  FLEET_MANAGER
+  DISPATCHER
+  ACCOUNTANT
+  FINANCE_MANAGER
+  PROCUREMENT
+  MAINTENANCE_MANAGER
+  TYRE_OFFICER
+  GPS_CONTROLLER
+  HR_OFFICER
+  DRIVER
+  AUDITOR
+  CUSTOMER
+}
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+enum TripStatus {
+  PLANNED
+  DISPATCHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+enum ApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  POSTED
+  VOID
+}
+enum FuelType {
+  DIESEL
+  PETROL
+  CNG
+  ELECTRIC
+  OTHER
+}
+
+model Company {
+ id String @id @default(cuid())
+ name String
+ legalName String?
+ registrationNo String?
+ taxId String?
+ email String?
+ phone String?
+ country String @default("Tanzania")
+ currency String @default("TZS")
+ timezone String @default("Africa/Dar_es_Salaam")
+ status CompanyStatus @default(TRIAL)
+ trialEndsAt DateTime?
+ paidThrough DateTime?
+ suspendedAt DateTime?
+ suspensionReason String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ users User[]
+ vehicles Vehicle[]
+ drivers Driver[]
+ trips Trip[]
+ fuelEntries FuelEntry[]
+ maintenanceJobs MaintenanceJob[]
+ tyres Tyre[]
+ expenses Expense[]
+ customers Customer[]
+ suppliers Supplier[]
+ invoices Invoice[]
+ payments Payment[]
+ gpsPositions GpsPosition[]
+ documents Document[]
+ auditLogs AuditLog[]
+ @@index([status, paidThrough])
+}
+
+model User {
+ id String @id @default(cuid())
+ companyId String?
+ company Company? @relation(fields:[companyId], references:[id], onDelete:SetNull)
+ email String @unique
+ name String
+ passwordHash String
+ platformRole PlatformRole?
+ role UserRole?
+ active Boolean @default(true)
+ lastLoginAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ auditLogs AuditLog[]
+ @@index([companyId, role])
+}
+
+model Vehicle {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ registrationNo String
+ make String?
+ model String?
+ year Int?
+ vin String?
+ fuelType FuelType @default(DIESEL)
+ capacityTons Decimal? @db.Decimal(12,2)
+ odometerKm Decimal @default(0) @db.Decimal(14,2)
+ status RecordStatus @default(ACTIVE)
+ insuranceExpiry DateTime?
+ inspectionExpiry DateTime?
+ licenceExpiry DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ trips Trip[]
+ fuelEntries FuelEntry[]
+ maintenanceJobs MaintenanceJob[]
+ tyres Tyre[]
+ expenses Expense[]
+ gpsPositions GpsPosition[]
+ @@unique([companyId, registrationNo])
+ @@index([companyId, status])
+}
+
+model Driver {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ fullName String
+ phone String?
+ licenceNo String?
+ licenceClass String?
+ licenceExpiry DateTime?
+ employmentStatus String @default("ACTIVE")
+ salary Decimal? @db.Decimal(14,2)
+ createdAt DateTime @default(now())
+ trips Trip[]
+}
+
+model Trip {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String
+ vehicle Vehicle @relation(fields:[vehicleId], references:[id])
+ driverId String?
+ driver Driver? @relation(fields:[driverId], references:[id])
+ tripNo String
+ origin String
+ destination String
+ plannedDeparture DateTime?
+ actualDeparture DateTime?
+ actualArrival DateTime?
+ startOdometer Decimal? @db.Decimal(14,2)
+ endOdometer Decimal? @db.Decimal(14,2)
+ distanceKm Decimal? @db.Decimal(14,2)
+ revenue Decimal @default(0) @db.Decimal(16,2)
+ status TripStatus @default(PLANNED)
+ notes String?
+ createdAt DateTime @default(now())
+ expenses Expense[]
+ fuelEntries FuelEntry[]
+ @@unique([companyId, tripNo])
+ @@index([companyId, status, plannedDeparture])
+}
+
+model FuelEntry {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String
+ vehicle Vehicle @relation(fields:[vehicleId], references:[id])
+ tripId String?
+ trip Trip? @relation(fields:[tripId], references:[id])
+ date DateTime @default(now())
+ litres Decimal @db.Decimal(12,3)
+ pricePerLitre Decimal @db.Decimal(14,2)
+ total Decimal @db.Decimal(16,2)
+ odometerKm Decimal? @db.Decimal(14,2)
+ station String?
+ receiptNo String?
+ createdAt DateTime @default(now())
+}
+
+model MaintenanceJob {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String
+ vehicle Vehicle @relation(fields:[vehicleId], references:[id])
+ jobNo String
+ category String
+ description String
+ workshop String?
+ openedAt DateTime @default(now())
+ completedAt DateTime?
+ odometerKm Decimal? @db.Decimal(14,2)
+ labourCost Decimal @default(0) @db.Decimal(14,2)
+ partsCost Decimal @default(0) @db.Decimal(14,2)
+ status String @default("OPEN")
+ nextServiceAt DateTime?
+ nextServiceKm Decimal? @db.Decimal(14,2)
+ @@unique([companyId, jobNo])
+}
+
+model Tyre {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String?
+ vehicle Vehicle? @relation(fields:[vehicleId], references:[id])
+ serialNo String
+ brand String?
+ size String?
+ position String?
+ fittedAt DateTime?
+ fittedOdometer Decimal? @db.Decimal(14,2)
+ removedAt DateTime?
+ purchaseCost Decimal @default(0) @db.Decimal(14,2)
+ status String @default("IN_STOCK")
+ @@unique([companyId, serialNo])
+}
+
+model Expense {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String?
+ vehicle Vehicle? @relation(fields:[vehicleId], references:[id])
+ tripId String?
+ trip Trip? @relation(fields:[tripId], references:[id])
+ date DateTime @default(now())
+ category String
+ description String
+ amount Decimal @db.Decimal(16,2)
+ currency String @default("TZS")
+ referenceNo String?
+ approvalStatus ApprovalStatus @default(DRAFT)
+ createdAt DateTime @default(now())
+}
+
+model Customer {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ name String
+ email String?
+ phone String?
+ taxId String?
+ invoices Invoice[]
+}
+model Supplier {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ name String
+ email String?
+ phone String?
+ taxId String?
+}
+model Invoice {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ customerId String
+ customer Customer @relation(fields:[customerId], references:[id])
+ invoiceNo String
+ issueDate DateTime @default(now())
+ dueDate DateTime?
+ subtotal Decimal @db.Decimal(16,2)
+ taxAmount Decimal @default(0) @db.Decimal(16,2)
+ total Decimal @db.Decimal(16,2)
+ balance Decimal @db.Decimal(16,2)
+ status String @default("DRAFT")
+ payments Payment[]
+ @@unique([companyId, invoiceNo])
+}
+model Payment {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ invoiceId String?
+ invoice Invoice? @relation(fields:[invoiceId], references:[id])
+ date DateTime @default(now())
+ amount Decimal @db.Decimal(16,2)
+ method String
+ referenceNo String?
+}
+model GpsPosition {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ vehicleId String
+ vehicle Vehicle @relation(fields:[vehicleId], references:[id])
+ latitude Decimal @db.Decimal(10,7)
+ longitude Decimal @db.Decimal(10,7)
+ speedKph Decimal? @db.Decimal(8,2)
+ recordedAt DateTime @default(now())
+ source String @default("PHONE")
+ @@index([companyId, vehicleId, recordedAt])
+}
+model Document {
+ id String @id @default(cuid())
+ companyId String
+ company Company @relation(fields:[companyId], references:[id], onDelete:Cascade)
+ entityType String
+ entityId String
+ documentType String
+ fileName String
+ fileUrl String
+ expiryDate DateTime?
+ createdAt DateTime @default(now())
+}
+model AuditLog {
+ id String @id @default(cuid())
+ companyId String?
+ company Company? @relation(fields:[companyId], references:[id], onDelete:SetNull)
+ userId String?
+ user User? @relation(fields:[userId], references:[id], onDelete:SetNull)
+ action String
+ entity String
+ entityId String?
+ details Json?
+ ipAddress String?
+ createdAt DateTime @default(now())
+ @@index([companyId, createdAt])
+}

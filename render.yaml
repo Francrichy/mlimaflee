@@ -1,88 +1,19 @@
-# Render Blueprint for MlimaniFleet monorepo.
-# Configure app.mlimani.net (SaaS) and erp.mlimani.net (public marketing) as custom domains in Render.
-# Set WEB_ORIGINS=https://app.mlimani.net,https://erp.mlimani.net after both domains are attached.
-databases:
-  - name: mlimanifleet-db
-    plan: basic-256mb
-    databaseName: mlimanifleet
-    user: mlimanifleet
-
 services:
   - type: web
-    name: mlimanifleet-api
+    name: mlimanifleet
     runtime: node
-    rootDir: apps/api
-    buildCommand: npm install && npx prisma generate && npm run build
+    plan: free
+    buildCommand: npm install && npx prisma generate
     startCommand: npm start
-    preDeployCommand: npx prisma db push
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: mlimanifleet-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: WEB_ORIGINS
-        sync: false
       - key: APP_URL
         value: https://app.mlimani.net
-      - key: DEFAULT_CURRENCY
-        value: TZS
-      - key: SUPER_ADMIN_EMAIL
-        sync: false
-      - key: SUPER_ADMIN_PASSWORD
-        sync: false
-      - key: SUPER_ADMIN_NAME
-        value: MlimaniFleet Platform Admin
-      - key: TRACCAR_URL
-        sync: false
-      - key: TRACCAR_USERNAME
-        sync: false
-      - key: TRACCAR_PASSWORD
-        sync: false
-      - key: GPS_RETENTION_DAYS
-        value: "90"
-      - key: SELCOM_BASE_URL
-        sync: false
-      - key: SELCOM_API_KEY
-        sync: false
-      - key: SELCOM_API_SECRET
-        sync: false
-      - key: PAWAPAY_BASE_URL
-        value: https://api.sandbox.pawapay.io
-      - key: PAWAPAY_TOKEN
-        sync: false
-      - key: PAYMENT_WEBHOOK_SECRET
-        generateValue: true
-      - key: RESEND_API_KEY
-        sync: false
-      - key: REMINDER_FROM_EMAIL
-        sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_FROM_NUMBER
-        sync: false
-      - key: ENABLE_EXTERNAL_DUE_REMINDERS
-        value: "false"
-
-  - type: web
-    name: mlimanifleet-web
-    runtime: static
-    rootDir: apps/web
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false
-
-  - type: web
-    name: mlimanifleet-marketing
-    runtime: static
-    rootDir: apps/marketing
-    buildCommand: npm run build
-    staticPublishPath: dist
+      - key: TRIAL_DAYS
+        value: "14"
